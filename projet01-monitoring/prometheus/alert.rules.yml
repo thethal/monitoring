@@ -1,0 +1,107 @@
+# =============================================================================
+#  alert.rules.yml — Règles d'alerte évaluées par Prometheus
+#  Ces alertes sont DÉTECTÉES par Prometheus puis ROUTÉES par AlertManager
+#  vers Slack et e-mail (cf. alertmanager/alertmanager.yml).
+#
+#  NOTE PÉDAGOGIQUE :
+#  Le sujet demande aussi 5 "alertes natives Grafana" (livrable L4) : celles-ci
+#  sont définies séparément dans grafana/provisioning/alerting/. Les deux
+#  approches coexistent volontairement pour illustrer les deux écoles :
+#    - Alerting Prometheus + AlertManager (ce fichier) = standard "as-code"
+#    - Alerting unifié Grafana (L4)                    = piloté depuis l'UI
+#
+#  Structure d'une règle :
+#    alert  : nom de l'alerte
+#    expr   : requête PromQL ; si elle renvoie un résultat, l'alerte s'arme
+#    for    : durée pendant laquelle la condition doit rester vraie avant de
+#             déclencher (évite les pics transitoires — cf. cours, slide 22)
+#    labels : sévérité utilisée par AlertManager pour le routage
+#    annotations : texte humain affiché dans la notification
+# =============================================================================
+
+groups:
+  # ===========================================================================
+  # GROUPE 1 : Santé des nœuds (méthode USE — Utilization, Saturation, Errors)
+  # ===========================================================================
+  - name: node-health
+    rules:
+
+      # ----- A1 : CPU saturé (USE → Utilization) -----------------------------
+      - alert: CpuUtilisationElevee
+        # 100 - (% de temps CPU passé en "idle", moyenné sur 5 min) = % utilisé.
+        # by (hostname) : une alerte distincte par serveur.
+        expr: 100 - (avg by (hostname) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m   # le pic doit durer 5 min pour ne pas alerter sur un sursaut
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU élevé sur {{ $labels.hostname }}"
+          description: "L'utilisation CPU dépasse 85% depuis 5 minutes (valeur : {{ printf \"%.1f\" $value }}%)."
+
+      # ----- A2 : Mémoire critique (USE → Saturation) ------------------------
+      - alert: MemoireSaturee
+        # Pourcentage de RAM réellement utilisée (hors cache/buffers).
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Mémoire saturée sur {{ $labels.hostname }}"
+          description: "Plus de 90% de la RAM est consommée depuis 5 minutes (valeur : {{ printf \"%.1f\" $value }}%)."
+
+      # ----- A3 : Disque presque plein (USE → Saturation) --------------------
+      - alert: EspaceDisqueFaible
+        # Pourcentage d'espace libre sur la partition racine "/".
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Espace disque faible sur {{ $labels.hostname }}"
+          description: "Moins de 15% d'espace libre sur / (valeur : {{ printf \"%.1f\" $value }}%)."
+
+      # ----- A4 : Nœud injoignable (Errors / Disponibilité) ------------------
+      - alert: NoeudInjoignable
+        # "up" vaut 1 si Prometheus arrive à scraper la cible, 0 sinon.
+        expr: up{job="node"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Nœud injoignable : {{ $labels.hostname }}"
+          description: "Le Node Exporter de {{ $labels.hostname }} ne répond plus depuis 1 minute."
+
+  # ===========================================================================
+  # GROUPE 2 : Qualité de service applicative (méthode RED / Golden Signals)
+  # ===========================================================================
+  - name: webapp-red
+    rules:
+
+      # ----- A5 : Taux d'erreurs HTTP élevé (RED → Errors) -------------------
+      - alert: TauxErreursHttpEleve
+        # Ratio des réponses 5xx sur le total des requêtes, sur 5 min.
+        # On multiplie par 100 pour obtenir un pourcentage.
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Taux d'erreurs HTTP > 5% sur boutique-api"
+          description: "Le service renvoie plus de 5% d'erreurs 5xx depuis 2 minutes (valeur : {{ printf \"%.1f\" $value }}%)."
+
+      # ----- A6 : Latence P95 dégradée (RED → Duration / Golden : Latence) ---
+      - alert: LatenceP95Degradee
+        # histogram_quantile calcule le 95e percentile à partir de l'histogramme
+        # http_request_duration_seconds_bucket. Seuil cours : P95 > 500 ms.
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latence P95 dégradée sur boutique-api"
+          description: "Le P95 de latence dépasse 500 ms depuis 3 minutes (valeur : {{ printf \"%.0f\" ($value * 1000) }} ms)."

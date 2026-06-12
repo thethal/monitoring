@@ -1,0 +1,209 @@
+apiVersion: 1
+groups:
+- orgId: 1
+  name: eservice-alertes
+  folder: E-Service Linux
+  interval: 1m
+  rules:
+  - uid: alert-cpu-warning
+    title: 1. CPU élevé (WARNING)
+    condition: C
+    for: 5m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: warning
+    annotations:
+      summary: CPU > 85% sur {{ $labels.hostname }}
+      description: 'Utilisation CPU supérieure à 85% pendant 5 min. Seuil USE recommandé : 80%.'
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus-eservice
+      model:
+        refId: A
+        editorMode: code
+        expr: 100 - (avg by (hostname) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 85
+  - uid: alert-mem-critical
+    title: 2. Mémoire saturée (CRITICAL)
+    condition: C
+    for: 5m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: critical
+    annotations:
+      summary: Mémoire > 90% sur {{ $labels.hostname }}
+      description: 'RAM utilisée à plus de 90% pendant 5 min : risque d''OOM-killer et de swap.'
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus-eservice
+      model:
+        refId: A
+        editorMode: code
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 90
+  - uid: alert-disk-warning
+    title: 3. Espace disque faible (WARNING)
+    condition: C
+    for: 10m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: warning
+    annotations:
+      summary: Disque / < 15% libre sur {{ $labels.hostname }}
+      description: Moins de 15% d'espace libre sur la partition racine pendant 10 min.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus-eservice
+      model:
+        refId: A
+        editorMode: code
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})
+          * 100
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: lt
+            params:
+            - 15
+  - uid: alert-latency-warning
+    title: 4. Latence P95 dégradée (WARNING)
+    condition: C
+    for: 3m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: warning
+    annotations:
+      summary: Latence P95 > 500 ms sur boutique-api
+      description: Le 95e percentile de latence dépasse 0,5 s. Seuil Golden Signals = 500 ms.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus-eservice
+      model:
+        refId: A
+        editorMode: code
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 0.5
+  - uid: alert-errors-critical
+    title: 5. Taux d'erreurs HTTP élevé (CRITICAL)
+    condition: C
+    for: 2m
+    noDataState: NoData
+    execErrState: Error
+    labels:
+      severity: critical
+    annotations:
+      summary: Taux d'erreurs 5xx > 5% sur boutique-api
+      description: Plus de 5% de réponses 5xx pendant 2 min. Seuil Golden Signals = 0,1%-5%.
+    data:
+    - refId: A
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: prometheus-eservice
+      model:
+        refId: A
+        editorMode: code
+        expr: (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])))
+          * 100
+        instant: true
+        range: false
+        intervalMs: 1000
+        maxDataPoints: 43200
+    - refId: C
+      relativeTimeRange:
+        from: 600
+        to: 0
+      datasourceUid: __expr__
+      model:
+        refId: C
+        type: threshold
+        expression: A
+        conditions:
+        - type: query
+          evaluator:
+            type: gt
+            params:
+            - 5

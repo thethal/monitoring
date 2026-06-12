@@ -1,0 +1,107 @@
+# =============================================================================
+#  alertmanager.yml — Configuration d'AlertManager
+#  Rôle : recevoir les alertes de Prometheus puis les ROUTER intelligemment
+#         (regroupement, inhibition, silence) vers Slack et e-mail.
+#  Hôte : srv-monitor (192.168.56.10), port 9093.
+#  Doc : https://prometheus.io/docs/alerting/latest/configuration/
+#
+#  ⚠️ SÉCURITÉ : remplacez les jetons/mots de passe ci-dessous par VOS valeurs.
+#     Ne committez JAMAIS de vrai webhook Slack ou mot de passe SMTP dans Git.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. PARAMÈTRES GLOBAUX (notamment la configuration du serveur d'e-mail SMTP)
+# -----------------------------------------------------------------------------
+global:
+  resolve_timeout: 5m            # délai avant de considérer une alerte "résolue"
+  # --- Paramètres SMTP pour l'envoi d'e-mails (exemple : Gmail) ---
+  smtp_smarthost: "smtp.gmail.com:587"
+  smtp_from: "alertes.eservice@gmail.com"
+  smtp_auth_username: "alertes.eservice@gmail.com"
+  smtp_auth_password: "VOTRE_MOT_DE_PASSE_APPLICATION"   # à remplacer
+  smtp_require_tls: true
+
+# -----------------------------------------------------------------------------
+# 2. MODÈLES DE MESSAGES (facultatif) — permet de personnaliser le rendu Slack.
+# -----------------------------------------------------------------------------
+templates:
+  - "/etc/alertmanager/templates/*.tmpl"
+
+# -----------------------------------------------------------------------------
+# 3. ARBRE DE ROUTAGE
+#    Détermine QUEL récepteur reçoit QUELLE alerte selon ses labels.
+#    Stratégie anti-alert-fatigue (cf. cours, slides 21-22) :
+#      - group_by   : regroupe les alertes liées en UNE notification
+#      - group_wait : attend un peu pour agréger les alertes simultanées
+#      - repeat_interval : ré-notifie si l'alerte persiste (escalade)
+# -----------------------------------------------------------------------------
+route:
+  # Regroupement : toutes les alertes d'un même hôte + même alerte = 1 message.
+  group_by: ["alertname", "hostname"]
+  group_wait: 30s          # attend 30 s pour agréger les 1res alertes d'un groupe
+  group_interval: 5m       # délai avant d'envoyer un message sur un groupe existant
+  repeat_interval: 4h      # ré-émet la notification toutes les 4 h si non résolue
+
+  # Récepteur par défaut (si aucune route enfant ne correspond).
+  receiver: "slack-monitoring"
+
+  # --- Routes spécialisées selon la sévérité (matrice d'escalade, slide 15) ---
+  routes:
+    # P1/P2 CRITIQUE → Slack #incidents + e-mail à l'astreinte, ré-émission 1 h.
+    - match:
+        severity: critical
+      receiver: "critique-slack-email"
+      group_wait: 10s        # plus réactif sur le critique
+      repeat_interval: 1h
+    # P3 WARNING → simple notification Slack #monitoring.
+    - match:
+        severity: warning
+      receiver: "slack-monitoring"
+
+# -----------------------------------------------------------------------------
+# 4. RÈGLES D'INHIBITION
+#    Évite les cascades : si un nœud est DOWN (critical), on n'inonde pas
+#    l'équipe d'alertes "CPU/RAM" sur ce même nœud (qui découlent de la panne).
+# -----------------------------------------------------------------------------
+inhibit_rules:
+  - source_match:
+      severity: "critical"
+      alertname: "NoeudInjoignable"
+    target_match:
+      severity: "warning"
+    # On inhibe uniquement si c'est le MÊME hôte.
+    equal: ["hostname"]
+
+# -----------------------------------------------------------------------------
+# 5. RÉCEPTEURS (receivers) — les destinations concrètes des notifications.
+# -----------------------------------------------------------------------------
+receivers:
+
+  # --- Récepteur simple : Slack canal #monitoring (warnings) ---
+  - name: "slack-monitoring"
+    slack_configs:
+      - api_url: "https://hooks.slack.com/services/XXXX/YYYY/ZZZZ"  # webhook à remplacer
+        channel: "#monitoring"
+        send_resolved: true       # notifie aussi quand l'alerte se résout
+        title: "{{ .CommonLabels.alertname }} — {{ .CommonLabels.severity }}"
+        text: >-
+          {{ range .Alerts }}*{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          {{ end }}
+
+  # --- Récepteur double : Slack #incidents + e-mail (criticals) ---
+  - name: "critique-slack-email"
+    slack_configs:
+      - api_url: "https://hooks.slack.com/services/XXXX/YYYY/ZZZZ"  # webhook à remplacer
+        channel: "#incidents"
+        send_resolved: true
+        title: "🔴 CRITIQUE : {{ .CommonLabels.alertname }}"
+        text: >-
+          {{ range .Alerts }}*{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          {{ end }}
+    email_configs:
+      - to: "astreinte.sre@eservice-linux.local"
+        send_resolved: true
+        headers:
+          Subject: "[CRITIQUE] {{ .CommonLabels.alertname }} sur {{ .CommonLabels.hostname }}"

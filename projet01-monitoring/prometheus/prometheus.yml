@@ -1,0 +1,118 @@
+# =============================================================================
+#  prometheus.yml — Configuration principale du serveur Prometheus
+#  Projet 01 : Stack Prometheus + Grafana sur Infrastructure Linux
+#  Entreprise fictive : E-Service Linux
+#  Hôte : srv-monitor (192.168.56.10)
+# -----------------------------------------------------------------------------
+#  Ce fichier décrit DEUX choses :
+#    1. La configuration globale (fréquence de collecte, d'évaluation des règles)
+#    2. La liste des "cibles" (targets) que Prometheus doit interroger (scraper)
+#  Documentation : https://prometheus.io/docs/prometheus/latest/configuration/
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. PARAMÈTRES GLOBAUX
+#    S'appliquent par défaut à tous les jobs sauf surcharge locale.
+# -----------------------------------------------------------------------------
+global:
+  # Intervalle de collecte : Prometheus interroge chaque cible toutes les 15 s.
+  # 15 s est un bon compromis : assez fin pour voir les pics, sans saturer le TSDB.
+  scrape_interval: 15s
+
+  # Intervalle d'évaluation des règles d'alerte (alert.rules.yml).
+  # Prometheus vérifie toutes les 15 s si une condition d'alerte est remplie.
+  evaluation_interval: 15s
+
+  # Étiquettes (labels) ajoutées à TOUTE série pour identifier le datacenter/lab.
+  # Utile lorsqu'on agrège plusieurs Prometheus dans une fédération.
+  external_labels:
+    environment: lab          # lab | staging | production
+    cluster: eservice-linux
+
+# -----------------------------------------------------------------------------
+# 2. RÈGLES D'ALERTE
+#    Fichiers chargés par Prometheus pour générer les alertes envoyées
+#    à AlertManager. Les chemins sont relatifs au répertoire de prometheus.yml.
+# -----------------------------------------------------------------------------
+rule_files:
+  - "alert.rules.yml"
+
+# -----------------------------------------------------------------------------
+# 3. CONNEXION À ALERTMANAGER
+#    Prometheus DÉTECTE les alertes ; AlertManager les ROUTE (Slack, e-mail...).
+# -----------------------------------------------------------------------------
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            # AlertManager tourne sur la même VM, port 9093 par défaut.
+            - "localhost:9093"
+
+# -----------------------------------------------------------------------------
+# 4. JOBS DE COLLECTE (scrape_configs)
+#    Chaque "job" regroupe des cibles homogènes. Prometheus ajoute
+#    automatiquement le label  job="<nom>"  à toutes les métriques collectées.
+# -----------------------------------------------------------------------------
+scrape_configs:
+
+  # ---------------------------------------------------------------------------
+  # 4.1 Prometheus s'auto-surveille (santé du serveur de monitoring lui-même).
+  # ---------------------------------------------------------------------------
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          instance_role: "monitoring"
+
+  # ---------------------------------------------------------------------------
+  # 4.2 Node Exporter — métriques système (CPU, RAM, disque, réseau) des 3 nœuds
+  #     C'est la source de données du dashboard USE.
+  #     Port standard de Node Exporter : 9100.
+  # ---------------------------------------------------------------------------
+  - job_name: "node"
+    static_configs:
+      # Nœud 1 : le serveur de monitoring lui-même
+      - targets: ["192.168.56.10:9100"]
+        labels:
+          hostname: "srv-monitor"
+          environment: "lab"
+          instance_role: "monitoring"
+      # Nœud 2 : le serveur applicatif web
+      - targets: ["192.168.56.11:9100"]
+        labels:
+          hostname: "srv-web01"
+          environment: "lab"
+          instance_role: "web"
+      # Nœud 3 : le serveur de base de données
+      - targets: ["192.168.56.12:9100"]
+        labels:
+          hostname: "srv-db01"
+          environment: "lab"
+          instance_role: "database"
+
+  # ---------------------------------------------------------------------------
+  # 4.3 Application web instrumentée — métriques RED / Golden Signals
+  #     L'app Flask (webapp/app.py) expose ses métriques sur le port 8000.
+  #     C'est la source de données du dashboard Golden Signals.
+  # ---------------------------------------------------------------------------
+  - job_name: "webapp"
+    # On collecte cette app plus souvent (5 s) car la latence évolue vite.
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["192.168.56.11:8000"]
+        labels:
+          hostname: "srv-web01"
+          service: "boutique-api"
+          environment: "lab"
+
+  # ---------------------------------------------------------------------------
+  # 4.4 PostgreSQL Exporter — métriques de la base de données
+  #     postgres_exporter expose les métriques PostgreSQL sur le port 9187.
+  # ---------------------------------------------------------------------------
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["192.168.56.12:9187"]
+        labels:
+          hostname: "srv-db01"
+          service: "postgresql"
+          environment: "lab"

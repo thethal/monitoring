@@ -1,0 +1,36 @@
+# =============================================================================
+#  datasources.yml — Provisioning "as-code" de la source de données Grafana
+#  Livrable L3.
+#  Emplacement attendu sur la VM : /etc/grafana/provisioning/datasources/
+#
+#  Le provisioning permet de RECRÉER Grafana à l'identique depuis des fichiers,
+#  sans aucun clic dans l'interface : c'est l'approche Infrastructure-as-Code
+#  exigée par le sujet (dashboards reproductibles, critère d'évaluation 3/20).
+#
+#  Doc : https://grafana.com/docs/grafana/latest/administration/provisioning/
+# =============================================================================
+
+apiVersion: 1
+
+# Sources de données à supprimer au démarrage (utile pour nettoyer un doublon).
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+
+# Sources de données à créer/mettre à jour automatiquement au démarrage.
+datasources:
+  - name: Prometheus              # nom affiché dans Grafana
+    uid: prometheus-eservice      # UID FIXE : référencé par les alertes natives (L4)
+    type: prometheus              # type de connecteur
+    access: proxy                 # Grafana interroge Prometheus côté serveur
+                                  # (proxy) et non depuis le navigateur (direct)
+    # Prometheus tourne sur la même VM que Grafana → localhost:9090.
+    url: http://localhost:9090
+    isDefault: true               # datasource utilisée par défaut dans les panels
+    editable: true                # modifiable depuis l'UI (pratique en TP)
+    jsonData:
+      httpMethod: POST            # POST autorise des requêtes PromQL plus longues
+      # Doit être >= scrape_interval de Prometheus (15 s) pour un rendu cohérent.
+      timeInterval: "15s"
+      # Active la corrélation métriques → traces si Tempo est ajouté plus tard.
+      manageAlerts: true

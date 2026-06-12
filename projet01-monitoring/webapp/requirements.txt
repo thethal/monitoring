@@ -1,0 +1,5 @@
+# Dépendances de l'application de démonstration boutique-api
+# Installation : pip install -r requirements.txt
+flask==3.0.3
+prometheus-client==0.20.0
+gunicorn==22.0.0        # serveur WSGI de production (optionnel mais recommandé)

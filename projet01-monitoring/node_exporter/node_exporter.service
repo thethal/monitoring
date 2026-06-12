@@ -1,0 +1,42 @@
+# =============================================================================
+#  node_exporter.service — Unité systemd pour exécuter Node Exporter en service
+#  À déposer dans : /etc/systemd/system/node_exporter.service
+#  Puis :  sudo systemctl daemon-reload && sudo systemctl enable --now node_exporter
+#
+#  Node Exporter expose les métriques système (CPU, RAM, disque, réseau)
+#  sur le port 9100, scrappé par Prometheus. À installer sur les 3 nœuds.
+# =============================================================================
+
+[Unit]
+Description=Prometheus Node Exporter (metriques systeme)
+Documentation=https://github.com/prometheus/node_exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# On exécute Node Exporter sous un utilisateur dédié sans privilèges
+# (principe de moindre privilège — bonne pratique de sécurité).
+User=node_exporter
+Group=node_exporter
+Type=simple
+
+# Binaire + options :
+#   --collector.systemd        : expose l'état des services systemd
+#   --collector.processes      : expose des métriques sur les processus
+#   --web.listen-address       : interface/port d'écoute
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.systemd \
+    --collector.processes \
+    --web.listen-address=:9100
+
+# Redémarrage automatique en cas de crash (robustesse).
+Restart=on-failure
+RestartSec=5s
+
+# Durcissement systemd (réduit la surface d'attaque du service).
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

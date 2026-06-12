@@ -1,0 +1,27 @@
+# =============================================================================
+#  dashboards.yml — Provisioning "as-code" des dashboards Grafana
+#  Livrable L3.
+#  Emplacement attendu sur la VM : /etc/grafana/provisioning/dashboards/
+#
+#  Ce fichier dit à Grafana : « charge automatiquement tous les fichiers .json
+#  trouvés dans le dossier indiqué et crée les dashboards correspondants ».
+#  Ainsi, les dashboards USE et Golden Signals (livrable L2) sont déployés
+#  sans import manuel.
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: "dashboards-eservice"   # nom logique du fournisseur
+    orgId: 1
+    folder: "E-Service Linux"     # dossier dans lequel ranger les dashboards
+    type: file
+    disableDeletion: false        # autorise la suppression manuelle si besoin
+    editable: true                # dashboards modifiables dans l'UI
+    updateIntervalSeconds: 30     # Grafana relit le dossier toutes les 30 s
+    allowUiUpdates: true
+    options:
+      # Chemin sur la VM où sont déposés les fichiers .json des dashboards.
+      path: /var/lib/grafana/dashboards
+      # Recrée l'arborescence de dossiers à partir des sous-répertoires.
+      foldersFromFilesStructure: false
