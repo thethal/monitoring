@@ -14,58 +14,62 @@ AM_VERSION="0.27.0"       # AlertManager
 ARCH="linux-amd64"
 SRC="$(cd "$(dirname "$0")/.." && pwd)"   # racine du projet (chemin absolut)
 
-# echo "==> Arrêt des services existants (si actifs)"
-# systemctl stop prometheus alertmanager 2>/dev/null || true
+echo "==> Arrêt des services existants (si actifs)"
+systemctl stop prometheus alertmanager 2>/dev/null || true
 
-# echo "==> Création des utilisateurs et répertoires"
-# id prometheus &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin prometheus
-# mkdir -p /etc/prometheus /var/lib/prometheus
-# mkdir -p /etc/alertmanager /var/lib/alertmanager
+echo "==> Création des utilisateurs et répertoires"
+id prometheus &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin prometheus
+mkdir -p /etc/prometheus /var/lib/prometheus
+mkdir -p /etc/alertmanager /var/lib/alertmanager
 
-# # --------------------------- PROMETHEUS -------------------------------------
-# echo "==> Installation de Prometheus ${PROM_VERSION}"
-# cd /tmp
-# wget -q "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.${ARCH}.tar.gz"
-# tar xzf "prometheus-${PROM_VERSION}.${ARCH}.tar.gz"
-# cd "prometheus-${PROM_VERSION}.${ARCH}"
+# --------------------------- PROMETHEUS -------------------------------------
+echo "==> Installation de Prometheus ${PROM_VERSION}"
+cd /tmp
+wget -q "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/prometheus-${PROM_VERSION}.${ARCH}.tar.gz"
+rm -rf "/tmp/prometheus-${PROM_VERSION}.${ARCH}"
+tar xzf "prometheus-${PROM_VERSION}.${ARCH}.tar.gz"
+cd "prometheus-${PROM_VERSION}.${ARCH}"
 
-# # Binaires + bibliothèques de consoles.
-# cp prometheus promtool /usr/local/bin/
-# cp -r consoles console_libraries /etc/prometheus/ 
+# Binaires + bibliothèques de consoles.
+cp prometheus promtool /usr/local/bin/
+cp -r consoles console_libraries /etc/prometheus/ 
 
-# # Fichiers de configuration du projet.
-# cp "${SRC}/prometheus/prometheus.yml"   /etc/prometheus/
-# cp "${SRC}/prometheus/alert.rules.yml"  /etc/prometheus/
+# Fichiers de configuration du projet.
+cp "${SRC}/prometheus/prometheus.yml"   /etc/prometheus/
+cp "${SRC}/prometheus/alert.rules.yml"  /etc/prometheus/
 
-# # Droits.
-# chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus /usr/local/bin/prometheus /usr/local/bin/promtool
+# Droits.
+chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus /usr/local/bin/prometheus /usr/local/bin/promtool
 
-# # Vérification de la configuration AVANT de démarrer (bonne pratique).
-# echo "==> Validation de la configuration Prometheus :"
-# promtool check config /etc/prometheus/prometheus.yml
+# Vérification de la configuration AVANT de démarrer (bonne pratique).
+echo "==> Validation de la configuration Prometheus :"
+promtool check config /etc/prometheus/prometheus.yml || {
+    echo "⚠️  AVERTISSEMENT : configuration invalide, vérifiez prometheus.yml"
+    echo "    Le service sera quand même installé mais ne démarrera pas."
+}
 
-# # Service systemd Prometheus.
-# cat > /etc/systemd/system/prometheus.service <<'EOF'
-# [Unit]
-# Description=Prometheus Time Series Server
-# Wants=network-online.target
-# After=network-online.target
+# Service systemd Prometheus.
+cat > /etc/systemd/system/prometheus.service <<'EOF'
+[Unit]
+Description=Prometheus Time Series Server
+Wants=network-online.target
+After=network-online.target
 
-# [Service]
-# User=prometheus
-# Group=prometheus
-# Type=simple
-# # --storage.tsdb.retention.time=30d : conserve 30 jours d'historique (capacité).
-# ExecStart=/usr/local/bin/prometheus \
-#     --config.file=/etc/prometheus/prometheus.yml \
-#     --storage.tsdb.path=/var/lib/prometheus/ \
-#     --storage.tsdb.retention.time=30d \
-#     --web.listen-address=:9090
-# Restart=on-failure
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+# --storage.tsdb.retention.time=30d : conserve 30 jours d'historique (capacité).
+ExecStart=/usr/local/bin/prometheus \
+    --config.file=/etc/prometheus/prometheus.yml \
+    --storage.tsdb.path=/var/lib/prometheus/ \
+    --storage.tsdb.retention.time=30d \
+    --web.listen-address=:9090
+Restart=on-failure
 
-# [Install]
-# WantedBy=multi-user.target
-# EOF
+[Install]
+WantedBy=multi-user.target
+EOF
 
 # --------------------------- ALERTMANAGER -----------------------------------
 echo "==> Installation d'AlertManager ${AM_VERSION}"
@@ -104,6 +108,6 @@ systemctl restart prometheus alertmanager
 
 sleep 3
 echo "==> Vérifications :"
-systemctl is-active prometheus   && echo "  Prometheus   : http://192.168.56.10:9090"
-systemctl is-active alertmanager && echo "  AlertManager : http://192.168.56.10:9093"
+systemctl is-active prometheus && echo "  Prometheus   : http://192.168.56.10:9090" || echo "  ❌ Prometheus inactif — vérifier : journalctl -u prometheus"
+systemctl is-active alertmanager && echo "  AlertManager : http://192.168.56.10:9093" || echo "  ❌ AlertManager inactif — vérifier : journalctl -u alertmanager"
 echo "==> Terminé."
