@@ -8,7 +8,7 @@
 #  (USE + Golden Signals) et alertes natives (L4). Aucun clic requis ensuite.
 # =============================================================================
 set -euo pipefail
-SRC="$(cd "$(dirname "$0")/.." && pwd)"   # racine du projet
+SRC="$(dirname "$0")/.."   # racine du projet
 
 echo "==> Ajout du dépôt officiel Grafana"
 apt-get install -y apt-transport-https software-properties-common wget gnupg >/dev/null

@@ -29,8 +29,8 @@ chmod 755 /usr/local/bin/node_exporter
 
 # 4. Installation de l'unité systemd (fournie dans node_exporter/).
 #    On suppose que le fichier node_exporter.service est dans le même dossier.
-cp "$(dirname "$0")/../node_exporter/node_exporter.service" /etc/systemd/system/ 2>/dev/null \
-    || echo "  (placez node_exporter.service dans /etc/systemd/system/ manuellement)"
+cp node_exporter/node_exporter.service /etc/systemd/system/ 2>/dev/null \
+    || echo "  (placez node_exporter.service dans /etc/systemd/system/ manuellement avec sudo)"
 
 # 5. Activation et démarrage du service.
 systemctl daemon-reload
