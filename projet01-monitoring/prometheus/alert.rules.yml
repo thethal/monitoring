@@ -104,4 +104,4 @@ groups:
           severity: warning
         annotations:
           summary: "Latence P95 dégradée sur boutique-api"
-          description: "Le P95 de latence dépasse 500 ms depuis 3 minutes (valeur : {{ printf \"%.0f\" (mul $value 1000) }} ms)."
+          description: "Le P95 de latence dépasse 500 ms depuis 3 minutes (valeur : {{ printf \"%.0f\" ($value * 1000) }} ms)."
