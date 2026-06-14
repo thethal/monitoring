@@ -5,7 +5,7 @@
 #  Usage :  sudo bash install_webapp.sh
 # =============================================================================
 set -euo pipefail
-SRC="$(dirname "$0")/.."
+SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "==> Installation des dépendances système"
 apt-get update -qq

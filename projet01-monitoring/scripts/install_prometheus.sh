@@ -12,7 +12,10 @@ set -euo pipefail
 PROM_VERSION="2.53.1"     # Prometheus LTS
 AM_VERSION="0.27.0"       # AlertManager
 ARCH="linux-amd64"
-SRC="$(dirname "$0")/.."  # racine du projet (un cran au-dessus de scripts/)
+SRC="$(cd "$(dirname "$0")/.." && pwd)"   # racine du projet (chemin absolut)
+
+echo "==> Arrêt des services existants (si actifs)"
+systemctl stop prometheus alertmanager 2>/dev/null || true
 
 echo "==> Création des utilisateurs et répertoires"
 id prometheus &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin prometheus
@@ -28,7 +31,7 @@ cd "prometheus-${PROM_VERSION}.${ARCH}"
 
 # Binaires + bibliothèques de consoles.
 cp prometheus promtool /usr/local/bin/
-cp -r consoles console_libraries /etc/prometheus/
+cp -r consoles console_libraries /etc/prometheus/ 
 
 # Fichiers de configuration du projet.
 cp "${SRC}/prometheus/prometheus.yml"   /etc/prometheus/
@@ -96,7 +99,8 @@ EOF
 # --------------------------- DÉMARRAGE --------------------------------------
 echo "==> Démarrage des services"
 systemctl daemon-reload
-systemctl enable --now prometheus alertmanager
+systemctl enable prometheus alertmanager
+systemctl restart prometheus alertmanager
 
 sleep 3
 echo "==> Vérifications :"
