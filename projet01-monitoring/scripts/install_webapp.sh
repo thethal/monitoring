@@ -17,9 +17,10 @@ echo "==> Déploiement de l'application dans /opt/boutique-api"
 mkdir -p /opt/boutique-api
 cp "${SRC}/webapp/app.py" "${SRC}/webapp/requirements.txt" /opt/boutique-api/
 
-# Environnement virtuel Python isolé via ensurepip (compatible Debian 13).
+# Environnement virtuel Python isolé (compatible Debian 13).
 python3 -m venv /opt/boutique-api/venv --without-pip
-/opt/boutique-api/venv/bin/python -m ensurepip
+curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+/opt/boutique-api/venv/bin/python /tmp/get-pip.py --quiet
 /opt/boutique-api/venv/bin/pip install -q -r /opt/boutique-api/requirements.txt
 
 # Utilisateur dédié sans privilèges.
