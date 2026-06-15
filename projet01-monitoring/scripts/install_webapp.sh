@@ -9,7 +9,7 @@ SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
 echo "==> Installation des dépendances système"
 apt-get update -qq
-apt-get install -y python3 python3-pip >/dev/null
+apt-get install -y python3 >/dev/null
 pip3 install virtualenv --break-system-packages
 
 echo "==> Déploiement de l'application dans /opt/boutique-api"
@@ -17,8 +17,9 @@ mkdir -p /opt/boutique-api
 cp "${SRC}/webapp/app.py" "${SRC}/webapp/requirements.txt" /opt/boutique-api/
 
 # Environnement virtuel Python isolé (bonne pratique).
-virtualenv /opt/boutique-api/venv
-/opt/boutique-api/venv/bin/pip install -q -r /opt/boutique-api/requirements.txt
+sudo python3 -m venv /opt/boutique-api/venv --without-pip
+sudo /opt/boutique-api/venv/bin/python -m ensurepip
+sudo /opt/boutique-api/venv/bin/pip install -r /opt/boutique-api/requirements.txt
 
 # Utilisateur dédié sans privilèges.
 id webapp &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin webapp
