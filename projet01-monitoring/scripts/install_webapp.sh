@@ -7,19 +7,20 @@
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
-echo "==> Installation des dépendances système"
+echo "==> Réparation de l'état APT et installation des dépendances système"
+apt-get install -f -y
+dpkg --configure -a
 apt-get update -qq
 apt-get install -y python3 >/dev/null
-pip3 install virtualenv --break-system-packages
 
 echo "==> Déploiement de l'application dans /opt/boutique-api"
 mkdir -p /opt/boutique-api
 cp "${SRC}/webapp/app.py" "${SRC}/webapp/requirements.txt" /opt/boutique-api/
 
-# Environnement virtuel Python isolé (bonne pratique).
-sudo python3 -m venv /opt/boutique-api/venv --without-pip
-sudo /opt/boutique-api/venv/bin/python -m ensurepip
-sudo /opt/boutique-api/venv/bin/pip install -r /opt/boutique-api/requirements.txt
+# Environnement virtuel Python isolé via ensurepip (compatible Debian 13).
+python3 -m venv /opt/boutique-api/venv --without-pip
+/opt/boutique-api/venv/bin/python -m ensurepip
+/opt/boutique-api/venv/bin/pip install -q -r /opt/boutique-api/requirements.txt
 
 # Utilisateur dédié sans privilèges.
 id webapp &>/dev/null || useradd --no-create-home --shell /usr/sbin/nologin webapp
@@ -36,7 +37,6 @@ User=webapp
 Group=webapp
 Type=simple
 WorkingDirectory=/opt/boutique-api
-# On lance via gunicorn (4 workers) pour un comportement proche de la production.
 ExecStart=/opt/boutique-api/venv/bin/gunicorn --workers 4 --bind 0.0.0.0:8000 app:app
 Restart=on-failure
 
@@ -49,6 +49,8 @@ systemctl enable --now boutique-api
 
 sleep 3
 echo "==> Vérification :"
-systemctl is-active boutique-api && echo "  boutique-api : http://192.168.56.11:8000  (/metrics pour Prometheus)"
-curl -s http://localhost:8000/metrics | grep -E "http_requests_total|http_request_duration" | head -3
+systemctl is-active boutique-api \
+    && echo "  boutique-api : http://192.168.56.11:8000  (/metrics pour Prometheus)" \
+    || echo "  ❌ boutique-api inactif — vérifier : journalctl -u boutique-api"
+curl -s http://localhost:8000/metrics | grep -E "http_requests_total|http_request_duration" | head -3 || true
 echo "==> Terminé."
