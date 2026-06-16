@@ -6,8 +6,8 @@ contactPoints:
   - uid: slack-eservice-recv
     type: slack
     settings:
-      url: https://hooks.slack.com/services/XXXX/YYYY/ZZZZ
-      recipient: '#monitoring'
+      url: https://hooks.slack.com/services/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
+      recipient: '#all-monitoring'
       title: '{{ .CommonLabels.alertname }} — {{ .CommonLabels.severity }}'
       text: '{{ range .Alerts }}{{ .Annotations.summary }}
 

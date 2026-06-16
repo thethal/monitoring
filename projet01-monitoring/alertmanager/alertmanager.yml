@@ -80,7 +80,7 @@ receivers:
   # --- Récepteur simple : Slack canal #monitoring (warnings) ---
   - name: "slack-monitoring"
     slack_configs:
-      - api_url: "https://hooks.slack.com/services/XXXX/YYYY/ZZZZ"  # webhook à remplacer
+      - api_url: "https://hooks.slack.com/services/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"  # webhook à remplacer
         channel: "#monitoring"
         send_resolved: true       # notifie aussi quand l'alerte se résout
         title: "{{ .CommonLabels.alertname }} — {{ .CommonLabels.severity }}"
@@ -92,8 +92,8 @@ receivers:
   # --- Récepteur double : Slack #incidents + e-mail (criticals) ---
   - name: "critique-slack-email"
     slack_configs:
-      - api_url: "https://hooks.slack.com/services/XXXX/YYYY/ZZZZ"  # webhook à remplacer
-        channel: "#incidents"
+      - api_url: "https://hooks.slack.com/services/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"  # webhook à remplacer
+        channel: "#new-channel"
         send_resolved: true
         title: "🔴 CRITIQUE : {{ .CommonLabels.alertname }}"
         text: >-
