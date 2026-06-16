@@ -105,6 +105,19 @@ scrape_configs:
           service: "boutique-api"
           environment: "lab"
 
+    # ---------------------------------------------------------------------------
+  # TEMPORAIRE — Fake exporter pour simuler les alertes (tests L3)
+  # Retirer ce bloc après le test.
+  # ---------------------------------------------------------------------------
+  - job_name: "fake-exporter"
+    scrape_interval: 5s
+    static_configs:
+      - targets: ["192.168.56.11:9200"]
+        labels:
+          hostname: "srv-web01"
+          environment: "lab"
+ 
+
   # ---------------------------------------------------------------------------
   # 4.4 PostgreSQL Exporter — métriques de la base de données
   #     postgres_exporter expose les métriques PostgreSQL sur le port 9187.
