@@ -132,7 +132,7 @@ contact_points = {
             "type": "slack",
             "settings": {
                 # Remplacez par VOTRE webhook entrant Slack.
-                "url": "https://hooks.slack.com/services/XXXX/YYYY/ZZZZ",
+                "url": "https://hooks.slack.com/services/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",
                 "recipient": "#monitoring",
                 "title": "{{ .CommonLabels.alertname }} — {{ .CommonLabels.severity }}",
                 "text": "{{ range .Alerts }}{{ .Annotations.summary }}\n"

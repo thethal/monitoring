@@ -16,9 +16,9 @@ global:
   resolve_timeout: 5m            # délai avant de considérer une alerte "résolue"
   # --- Paramètres SMTP pour l'envoi d'e-mails (exemple : Gmail) ---
   smtp_smarthost: "smtp.gmail.com:587"
-  smtp_from: "alertes.eservice@gmail.com"
-  smtp_auth_username: "alertes.eservice@gmail.com"
-  smtp_auth_password: "VOTRE_MOT_DE_PASSE_APPLICATION"   # à remplacer
+  smtp_from: "thethales1elie@gmail.com"
+  smtp_auth_username: "thethales1elie@gmail.com"
+  smtp_auth_password: "sdbviyhmjbrkhwgu"   # à remplacer
   smtp_require_tls: true
 
 # -----------------------------------------------------------------------------
